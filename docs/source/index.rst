@@ -18,10 +18,10 @@ Installation
 
 ``pip install halopy``
 
-or, install from source::
-  git clone https://github.com/maxpowa/halopy.git
-  cd halopy
-  pip install .
+or, install from source ::
+    git clone https://github.com/maxpowa/halopy.git
+    cd halopy
+    pip install .
 
 Documentation
 -------------

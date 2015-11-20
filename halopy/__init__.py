@@ -15,6 +15,7 @@ __version__ = '0.2'
 
 
 class HaloPyError(Exception):
+    """Standard HaloPy exception class"""
     pass
 
 
