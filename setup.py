@@ -10,7 +10,7 @@ with open('requirements.txt') as requirements_file:
 
 setup(
     name='halopy',
-    version='0.2',
+    version='0.3',
     description='Halo 5 API wrapper for python',
     url='https://github.com/maxpowa/halopy',
     author='Max Gurela',
