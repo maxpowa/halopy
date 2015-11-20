@@ -12,7 +12,7 @@ from halopy import HaloPy
 
 @pytest.fixture
 def api():
-    api_key = os.getenv('TEST_HALOPY_API_KEY', False)
+    api_key = os.getenv('HALOPY_API_KEY', False)
     if api_key:
         return HaloPy(api_key)
     raise ValueError('No API key defined')
