@@ -1,7 +1,6 @@
 # coding=utf-8
 """
-__init__.py - HaloPy
-Copyright 2015, Max Gurela
+.. moduleauthor:: Max Gurela <maxpowa@outlook.com>
 
 Licensed under the Eiffel Forum License 2
 """
@@ -20,18 +19,18 @@ class HaloPyError(Exception):
 
 
 class HaloPy(object):
-    """HaloPy is an abstraction layer for the Halo 5 REST API.
-
-    Requires an API key from https://developer.haloapi.com/
+    """Primary abstraction class for HaloPy
 
     Args:
-        api_key (str): Halo API key. 
-        title   (str): Title string, presumably for forward compat. default=h5
-        cache   (int): Seconds to cache API results, None=no cache. default=300
-        cacheFile(str): Filename to cache in, defaults to halopy.cache
-        rate  (tuple): Maximum rate limit in form (req, sec), default=(10,10)
+        api_key          (str): Halo API key.
+        title (Optional[str])): Game title, presumably for forward 
+            compatibility.
+        cache  (Optional[int]): Seconds to cache API results, 0 indicates no 
+            cache.
+        rate (Optional[tuple]): Maximum rate limit in form ``(req, sec)``
     """
-    def now(self):
+
+    def _now(self):
         return round(time.time())
 
     def __init__(self, api_key, title='h5', cache=300, rate=(10,10)):
@@ -42,27 +41,26 @@ class HaloPy(object):
         requests_cache.install_cache(backend='memory', expire_after=self.cache)
 
         self._allowance = rate[0]
-        self._last_check = self.now()
+        self._last_check = self._now()
 
     @property
     def api_key(self):
-        """str: current API key"""
+        """str: Halo API key."""
         return self._api_key
 
     @property
     def cache(self):
-        """int: seconds to cache API results"""
+        """int: Seconds to cache API results, 0 indicates no cache."""
         return self._cache
 
     @cache.setter
     def cache(self, value):
-        """int: seconds to cache API results"""
         self._cache = value
         requests_cache.install_cache(backend='memory', expire_after=self.cache)
 
     @property
     def rate(self):
-        """tuple: maximum rate limit in form (req, sec)"""
+        """tuple: Maximum rate limit in form ``(req, sec)``"""
         return self._rate
 
     _err_400 = 'Bad request'
@@ -72,7 +70,7 @@ class HaloPy(object):
     _err_500 = 'Internal server error'
 
     def _post_request(self):
-        current = self.now()
+        current = self._now()
         time_passed = current - self._last_check
         self._last_check = current
         self._allowance += time_passed * (self.rate[0] / self.rate[1])
@@ -80,11 +78,41 @@ class HaloPy(object):
             self._allowance = self.rate[0]
 
     def can_request(self):
+        """Check if we should be within our rate limits.
+
+        This is called before actually executing any request internally, so
+        you aren't required to check this yourself.
+
+        Returns:
+            bool: True if we are within the limit, False otherwise.
+        """
         if self._allowance >= 1.0:
             return True
         return False
 
     def request(self, endpoint, params={}, headers={}):
+        """Sends request to the Halo API servers.
+
+        API key header will automatically be attached if it't not already
+        specified. Endpoint will be prefixed with ``https://www.haloapi.com/``
+        before the request is executed. 
+
+        Retrieved values will be cached via cache method specified when 
+        initializing HaloPy. If the value is from the cache, we the request
+        will not count towards our rate limit bucket.
+
+        Args:
+            endpoint           (str): The endpoint to send the request to
+            params  (Optional[dict]): Dictionary of key, value URL params
+            headers (Optional[dict]): Dictionary of key, value request headers
+
+        Returns:
+            Response: :class:requests.Response object.
+
+        Raises:
+            HaloPyError: If we are over our rate limit, or if an
+                HTTP error occurs.
+        """
         if not self.can_request():
             raise HaloPyError(self._err_429)
         self._allowance -= 1.0
@@ -118,16 +146,42 @@ class HaloPy(object):
             raise HaloPyError(self._err_500)
         else:
             response.raise_for_status()
-        return response.json()
+        return response
 
     def meta_request(self, endpoint, params={}, headers={}):
+        """Helper method for metadata requests
+
+        Prepends the endpoint with ``metadata/{title}/metadata/`` where 
+        ``{title}`` is the game title.
+
+        Args:
+            endpoint           (str): The endpoint to send the request to
+            params  (Optional[dict]): Dictionary of key, value URL params
+            headers (Optional[dict]): Dictionary of key, value request headers
+
+        Returns:
+            json-encoded content of a response, if any
+        """
         return self.request(
             'metadata/{t}/metadata/{e}'.format(t=self.title, e=endpoint),
             params,
             headers
-        )
+        ).json()
 
     def profile_request(self, endpoint, params={}, headers={}):
+        """Helper method for profile requests
+
+        Prepends the endpoint with ``profile/{title}/profiles/`` where
+        ``{title}`` is the game title.
+
+        Args:
+            endpoint           (str): The endpoint to send the request to
+            params  (Optional[dict]): Dictionary of key, value URL params
+            headers (Optional[dict]): Dictionary of key, value request headers
+
+        Returns:
+            Response: :class:requests.Response object.    
+        """
         return self.request(
             'profile/{t}/profiles/{e}'.format(t=self.title, e=endpoint),
             params,
@@ -135,87 +189,264 @@ class HaloPy(object):
         )
 
     def stats_request(self, endpoint, params={}, headers={}):
+        """Helper method for metadata requests
+
+        Prepends the endpoint with ``stats/{title}/`` where
+        ``{title}`` is the game title.
+
+        Args:
+            endpoint           (str): The endpoint to send the request to
+            params  (Optional[dict]): Dictionary of key, value URL params
+            headers (Optional[dict]): Dictionary of key, value request headers
+
+        Returns:
+            json-encoded content of a response, if any
+        """
         return self.request(
             'stats/{t}/{e}'.format(t=self.title, e=endpoint),
             params,
             headers
-        )
+        ).json()
 
     def  get_campaign_missions(self):
+        """Get a listing of campaign missions supported in the title.
+
+        See https://developer.haloapi.com/docs/services/560af0dae2f7f710cc79e516/operations/562d68f1e2f7f72764ff1f53
+        for more information on this endpoint.
+
+        Returns:
+            List[object]: List of campaign mission details
+        """
         url = 'campaign-missions'
         return self.meta_request(url)
     
     def  get_commendations(self):
+        """Get a listing of commendations supported in the title.
+
+        See https://developer.haloapi.com/docs/services/560af0dae2f7f710cc79e516/operations/562d68f1e2f7f72764ff1f4e
+        for more information on this endpoint.
+
+        Returns:
+            List[object]: List of commendation details
+        """
         url = 'commendations'
         return self.meta_request(url)
         
     def get_csr_designations(self):
+        """Get a listing of CSR designations supported in the title.
+
+        See https://developer.haloapi.com/docs/services/560af0dae2f7f710cc79e516/operations/562d68f1e2f7f72764ff1f50
+        for more information on this endpoint.
+
+        Returns:
+            List[object]: List of CSR designation details
+        """
         url = 'csr-designations'
         return self.meta_request(url)
     
     def get_enemies(self):
+        """Get a listing of enemies supported in the title.
+
+        See https://developer.haloapi.com/docs/services/560af0dae2f7f710cc79e516/operations/562d68f1e2f7f72764ff1f49
+        for more information on this endpoint.
+
+        Returns:
+            List[object]: List of enemy details
+        """
         url = 'enemies'
         return self.meta_request(url)
         
     def get_flexible_stats(self):
+        """Get a listing of flexible statistics supported in the title.
+
+        See https://developer.haloapi.com/docs/services/560af0dae2f7f710cc79e516/operations/562d68f1e2f7f72764ff1f43
+        for more information on this endpoint.
+
+        Returns:
+            List[object]: List of flexible statistic details
+        """
         url = 'flexible-stats'
         return self.meta_request(url)
     
     def get_game_base_variants(self):
+        """Get a listing of all game base variants supported in the title.
+
+        See https://developer.haloapi.com/docs/services/560af0dae2f7f710cc79e516/operations/562d68f1e2f7f72764ff1f45
+        for more information on this endpoint.
+
+        Returns:
+            List[object]: List of game base variant details
+        """
         url = 'game-base-variants'
         return self.meta_request(url)
         
-    def get_game_variants_by_id(self,  varID):
-        url = 'game-variants/{id1}'.format(
-            id1 = varID)
+    def get_game_variant_by_id(self, var_id):
+        """Get details for specified game variant id.
+
+        See https://developer.haloapi.com/docs/services/560af0dae2f7f710cc79e516/operations/562d68f1e2f7f72764ff1f46
+        for more information on this endpoint.
+
+        Args:
+            var_id (uid): Game variant unique identifier
+
+        Returns:
+            object: Game variant details
+        """
+        url = 'game-variants/{var_id}'.format(var_id = var_id)
         return self.meta_request(url)    
     
     def get_impulses(self):
+        """Get list of supported impulses for the title. Impulses are 
+        essentially invisible medals, players receive them for performing 
+        virtually any action in the game.
+
+        See https://developer.haloapi.com/docs/services/560af0dae2f7f710cc79e516/operations/562d68f1e2f7f72764ff1f4f
+        for more information on this endpoint.
+
+        Returns:
+            List[object]: List of impulse details
+        """
         url = 'impulses'
         return self.meta_request(url)
     
-    def get_maps_variants_by_id(self,  mapID):
-        url = 'map-variants/{id1}'.format(
-            id1 = mapID)
+    def get_maps_variant_by_id(self,  map_id):
+        """Get details for specified map variant id
+
+        See https://developer.haloapi.com/docs/services/560af0dae2f7f710cc79e516/operations/562d68f1e2f7f72764ff1f4c
+        for more information on this endpoint.
+
+        Args:
+            map_id (uid): Unique identifier for the map
+
+        Returns:
+            object: Map variant details
+        """
+        url = 'map-variants/{map_id}'.format(map_id = map_id)
         return self.meta_request(url)       
     
     def get_maps(self):
+        """Get list of supported maps in the title.
+
+        See https://developer.haloapi.com/docs/services/560af0dae2f7f710cc79e516/operations/562d68f1e2f7f72764ff1f44
+        for more information on this endpoint.
+
+        Returns:
+            List[object]: List of map details
+        """
         url = 'maps'
         return self.meta_request(url)    
     
     def get_medals(self):
+        """Get list of supported medals in the title.
+
+        See https://developer.haloapi.com/docs/services/560af0dae2f7f710cc79e516/operations/562d68f1e2f7f72764ff1f47
+        for more information on this endpoint.
+
+        Returns:
+            List[object]: List of medal details
+        """
         url = 'medals'
         return self.meta_request(url)        
 
     def get_playlists(self):
+        """Get list of playlists available in the title.
+
+        See https://developer.haloapi.com/docs/services/560af0dae2f7f710cc79e516/operations/562d68f1e2f7f72764ff1f4b
+        for more information on this endpoint.
+
+        Returns:
+            List[object]: List of playlist details
+        """
         url = 'playlists'
         return self.meta_request(url)    
 
-    def get_requisition_packs_by_id(self, reqpackID):
-        url = 'requisition-packs/{id1}'.format(id1 = reqpackID)
+    def get_requisition_pack_by_id(self, req_pack_id):
+        """Get details for a specific "REQ" pack
+
+        See https://developer.haloapi.com/docs/services/560af0dae2f7f710cc79e516/operations/562d68f1e2f7f72764ff1f52
+        for more information on this endpoint.
+
+        Args:
+            req_pack_id (uid): Unique identifier string
+
+        Returns:
+            object: "REQ" pack details
+        """
+        url = 'requisition-packs/{req}'.format(req=req_pack_id)
         return self.meta_request(url)      
     
-    def get_requisition_by_id(self, reqID):
-            url = 'requisitions/{id1}'.format(id1 = reqID)
-            return self.meta_request(url)          
+    def get_requisition_by_id(self, req_id):
+        """Get details for a specific "REQ"
+
+        See https://developer.haloapi.com/docs/services/560af0dae2f7f710cc79e516/operations/562d68f1e2f7f72764ff1f51
+        for more information on this endpoint.
+
+        Args:
+            req_id (uid): Unique identifier string
+
+        Returns:
+            object: "REQ" details
+        """
+        url = 'requisitions/{req_id}'.format(req_id = req_id)
+        return self.meta_request(url)          
         
     def get_skulls(self):
+        """Get list of skulls supported in the title.
+
+        See https://developer.haloapi.com/docs/services/560af0dae2f7f710cc79e516/operations/562d68f1e2f7f72764ff1f54
+        for more information on this endpoint.
+
+        Returns:
+            List[object]: List of skull details
+        """
         url = 'skulls'
         return self.meta_request(url)        
     
     def get_spartan_ranks(self):
+        """Get list of spartan ranks supported in the title.
+
+        See https://developer.haloapi.com/docs/services/560af0dae2f7f710cc79e516/operations/562d68f1e2f7f72764ff1f4d
+        for more information on this endpoint.
+
+        Returns:
+            List[object]: List of spartan rank details
+        """
         url = 'spartan-ranks'
         return self.meta_request(url)            
 
     def get_team_colors(self):
+        """Get list of supported team colors in the title.
+
+        See https://developer.haloapi.com/docs/services/560af0dae2f7f710cc79e516/operations/562d68f1e2f7f72764ff1f55
+        for more information on this endpoint.
+
+        Returns:
+            List[object]: List of team color details
+        """
         url = 'team-colors'
         return self.meta_request(url)            
 
     def get_vehicles(self):
+        """Get list of supported vehicles in the title.
+
+        See https://developer.haloapi.com/docs/services/560af0dae2f7f710cc79e516/operations/562d68f1e2f7f72764ff1f4a
+        for more information on this endpoint.
+
+        Returns:
+            List[object]: List of vehicle details
+        """
         url = 'vehicles'
         return self.meta_request(url)            
 
     def get_weapons(self):
+        """Get list of supported weapons in the title.
+
+        See https://developer.haloapi.com/docs/services/560af0dae2f7f710cc79e516/operations/562d68f1e2f7f72764ff1f48
+        for more information on this endpoint.
+
+        Returns:
+            List[object]: List of weapon details
+        """
         url = 'weapons'
         return self.meta_request(url)
 
@@ -223,60 +454,149 @@ class HaloPy(object):
     Profile functions
     '''
 
-    def get_emblem_by_id(self, playerID, size=None):
-        url = '{player}/emblem'.format(player = playerID)
+    def get_player_emblem(self, player_gt, size=None):
+        """Get the emblem image for the given player gamertag.
+
+        See https://developer.haloapi.com/docs/services/56393773e2f7f718548921d7/operations/56393774e2f7f70ad8d46e9c
+        for more information on this endpoint.
+
+        Args:
+            player_gt      (str): Player gamertag
+            size (Optional[int]): Size of emblem image, must be one of the 
+                following values: 95, 128, 190, 256, 512. Default is 256.
+
+        Returns:
+            Response: Response object containing the player's emblem
+        """
+        url = '{player}/emblem'.format(player = player_gt)
         return self.profile_request(url, {'size':size})
+        
     
-    def get_profile_by_id(self, playerID, size=None, crop=None):
-        url = '{player}/spartan'.format(player = playerID)
+    def get_player_spartan_image(self, player_gt, size=None, crop=None):
+        """Get the given player's spartan image.
+
+        See https://developer.haloapi.com/docs/services/56393773e2f7f718548921d7/operations/56393774e2f7f70ad8d46e9b
+        for more information on this endpoint.
+
+        Args:
+            player_gt      (str): Player gamertag
+            size (Optional[int]): Size of spartan image, must be one of the
+                following values: 95, 128, 190, 256, 512. Default is 256.
+            crop (Optional[str]): Either ``full`` or ``portrait``. If not
+                specified, ``full`` is used.
+
+        Returns:
+            Response: Response object containing the player's spartan image
+        """
+        url = '{player}/spartan'.format(player = player_gt)
         return self.profile_request(url, {'size':size, 'crop':crop})
 
     '''
     Statistics functions
     '''
 
-    def get_matches_for_player(self, playerID, modes=None, start=None, count=None):
-        url = 'players/{player}/matches'.format(player = playerID)
+    def get_player_matches(self, player_gt, modes=None, start=None, 
+                               count=None):
+        """Get matches played by the given player
+
+        See https://developer.haloapi.com/docs/services/560af163e2f7f710cc79e517/operations/560af163e2f7f703f8349976
+        for more information on this endpoint.
+
+        Args:
+            player_gt       (str): Player gamertag
+            modes (Optional[str]): Game mode(s) to show, if unspecified, all
+                game modes will be included in the result set. You may specify
+                multiple game modes by comma-delimiting the values.
+            start (Optional[int]): Start index for batched results
+            count (Optional[int]): Count of results to return. Minimum value is
+                1, maximum is 25. 25 is assumed if unspecified.
+
+        Returns:
+            object: A batched results object::
+                {
+                    "Start": int,
+                    "Count": int,
+                    "ResultCount": int,
+                    "Results" list
+                }
+        """
+        url = 'players/{player}/matches'.format(player = player_gt)
         return self.stats_request(url, {'modes':modes, 
                                         'start':start, 
                                         'count':count})
     
-    def get_match_by_id(self, matchId, gametype):
-        url = '{t}/matches/{m}'.format(t = gametype, m = matchId)
-        return self.stats_request(url)
+    def get_arena_match_by_id(self, match_id):
+        """Get arena match details by match id.
 
-    def get_arena_match_by_id(self, matchId):
-        url = 'arena/matches/{matchId}'.format(matchId = matchId)
-        return self.stats_request(url)              
+        See https://developer.haloapi.com/docs/services/560af163e2f7f710cc79e517/operations/5612e539e2f7f7334c177fb3
+        for more information on this endpoint.
+
+        Args:
+            match_id (uid): Match unique identifier
+
+        Returns:
+            object: An object representing an arena match's details
+        """
+        url = 'arena/matches/{match_id}'.format(match_id = match_id)
+        return self.stats_request(url)
         
-    def get_campaign_match_by_id(self, matchId):
-        url = 'campaign/matches/{matchId}'.format(matchId = matchId)
+    def get_campaign_match_by_id(self, match_id):
+        """Get campaign match details by match id.
+
+        See https://developer.haloapi.com/docs/services/560af163e2f7f710cc79e517/operations/5612e539e2f7f7334c177fb4
+        for more information on this endpoint.
+
+        Args:
+            match_id (uid): Match unique identifier
+
+        Returns:
+            object: An object representing a campaign match details
+        """
+        url = 'campaign/matches/{match_id}'.format(match_id = match_id)
         return self.stats_request(url)
     
-    def get_custom_match_by_id(self, matchId):
-        url = 'custom/matches/{matchId}'.format(matchId = matchId)
+    def get_custom_match_by_id(self, match_id):
+        """Get custom match details by match id.
+
+        See https://developer.haloapi.com/docs/services/560af163e2f7f710cc79e517/operations/5612e539e2f7f7334c177fb5
+        for more information on this endpoint.
+
+        Args:
+            match_id (uid): Match unique identifier
+
+        Returns:
+            object: An object representing a custom match details
+        """
+        url = 'custom/matches/{match_id}'.format(match_id = match_id)
         return self.stats_request(url)    
         
-    def get_warzone_match_by_id(self, matchId):
-        url = 'warzone/matches/{matchId}'.format(matchId = matchId)
+    def get_warzone_match_by_id(self, match_id):
+        """Get warzone match details by match id.
+
+        See https://developer.haloapi.com/docs/services/560af163e2f7f710cc79e517/operations/5612e539e2f7f7334c177fb6
+        for more information on this endpoint.
+
+        Args:
+            match_id (uid): Match unique identifier
+
+        Returns:
+            object: An object representing a warzone match details
+        """
+        url = 'warzone/matches/{match_id}'.format(match_id = match_id)
         return self.stats_request(url)       
     
-    def get_servicerecord_for_players(self, playerIds, servicerecord):
-        url = 'servicerecords/{s}'.format(s = servicerecord)
-        return self.stats_request(url, {'players': playerIds})
+    def get_players_service_record(self, player_gts, game_mode='campaign'):
+        """Get service records for the given list of player gamertags and the 
+        given mode
 
-    def get_arena_servicerecord_for_players(self, playerIds):
-        url = 'servicerecords/arena'
-        return self.stats_request(url, {'players':playerIds})
-    
-    def get_campaign_servicerecord_for_players(self, playerIds):
-        url = 'servicerecords/campaign'
-        return self.stats_request(url, {'players':playerIds})    
-        
-    def get_custom_servicerecord_for_players(self, playerIds):
-        url = 'servicerecords/custom'
-        return self.stats_request(url, {'players':playerIds})    
+        Args:
+            player_gts(List[str]): List of player gamertags
+            game_mode       (str): Must be ``arena``, ``warzone``, ``custom``,
+                or ``campaign``. Defaults to ``campaign``.
 
-    def get_warzone_servicerecord_for_players(self, playerIds):
-        url = 'servicerecords/warzone'
-        return self.stats_request(url, {'players':playerIds})   
+        Returns:
+            List[object]: List of player service record objects
+        """
+        url = 'servicerecords/{game_mode}'.format(game_mode = game_mode)
+        res_json = self.stats_request(url, {'players':player_ids})
+        return res_json.get('Results', [])
