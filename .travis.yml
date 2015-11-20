@@ -10,6 +10,9 @@ python:
 - nightly
 install: pip install -r dev-requirements.txt
 script: py.test -v
+before_deploy:
+- pip install .
+- python setup.py build_sphinx 
 deploy:
   provider: pypi
   user: maxpowa
