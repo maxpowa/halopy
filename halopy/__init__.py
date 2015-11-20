@@ -11,7 +11,7 @@ import requests_cache
 import time
 
 
-__version__ = '0.1'
+__version__ = '0.2'
 
 
 class HaloPyError(Exception):
@@ -495,8 +495,7 @@ class HaloPy(object):
     Statistics functions
     '''
 
-    def get_player_matches(self, player_gt, modes=None, start=None, 
-                               count=None):
+    def get_player_matches(self, player_gt, modes=None, start=None, count=None):
         """Get matches played by the given player
 
         See https://developer.haloapi.com/docs/services/560af163e2f7f710cc79e517/operations/560af163e2f7f703f8349976
