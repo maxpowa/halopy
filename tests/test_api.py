@@ -18,5 +18,5 @@ def api():
     raise ValueError('No API key defined')
 
 
-def test_sr_arena(api):
-    print(api.get_arena_servicerecord_for_players('themaxpowa'))
+def test_emblem(api):
+    api.get_player_emblem('themaxpowa')
