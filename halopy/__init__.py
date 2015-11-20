@@ -121,21 +121,21 @@ class HaloPy(object):
         return response.json()
 
     def meta_request(self, endpoint, params={}, headers={}):
-        self.request(
+        return self.request(
             'metadata/{t}/metadata/{e}'.format(t=self.title, e=endpoint),
             params,
             headers
         )
 
     def profile_request(self, endpoint, params={}, headers={}):
-        self.request(
+        return self.request(
             'profile/{t}/profiles/{e}'.format(t=self.title, e=endpoint),
             params,
             headers
         )
 
     def stats_request(self, endpoint, params={}, headers={}):
-        self.request(
+        return self.request(
             'stats/{t}/{e}'.format(t=self.title, e=endpoint),
             params,
             headers
