@@ -17,5 +17,5 @@ setup(
     author_email='maxpowa@outlook.com',
     license='Eiffel Forum License 2',
     packages=['halopy'],
-    requires = requirements
+    install_requires=requirements
 )
