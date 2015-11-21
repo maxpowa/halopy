@@ -14,7 +14,7 @@ from halopy import HaloPy, HaloPyResult
 @pytest.fixture
 def api(request):
     def finalize():
-        time.sleep(1)
+        time.sleep(2)
     request.addfinalizer(finalize)
 
     api_key = os.getenv('HALOPY_API_KEY', False)
