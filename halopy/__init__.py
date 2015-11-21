@@ -10,7 +10,7 @@ import requests
 import requests_cache
 import time
 
-__version__ = '0.3'
+__version__ = '1.1'
 
 
 class HaloPyError(Exception):
@@ -19,20 +19,20 @@ class HaloPyError(Exception):
 
 
 class HaloPyResult(object):
-    """Wrapper object for results from the API
+    """Wrapper object for results from the Halo API
 
     Args:
-        obj (object): Object to base this object around
+        wrap (dict): Dictionary to wrap
     """
 
-    def __init__(self, obj):
-        self._obj = obj
+    def __init__(self, wrap):
+        self._wrap = wrap
 
     def __getattr__(self, name):
-        if name in self._obj:
-            return self._obj[name]
-        elif 'Result' in self._obj and name in self._obj['Result']:
-            return self._obj['Result'][name]
+        if name in self._wrap:
+            return self._wrap[name]
+        elif 'Result' in self._wrap and name in self._wrap['Result']:
+            return self._wrap['Result'][name]
         else:
             return object.__getattribute__(self, name)
 
@@ -47,7 +47,7 @@ class HaloPy(object):
         cache  (Optional[int]): Seconds to cache API results, 0 indicates no
             cache.
         cache_backend (Optional[obj]): ``requests-cache`` supported backend. If
-            unspecified, HaloPy will automatically generate a halopy.cache file
+            unspecified, HaloPy will automatically generate a cache.sqlite file
             in the current working directory.
         rate (Optional[tuple]): Maximum rate limit in form ``(req, sec)``
         **backend_options: Options to pass to the requests-cache backend
@@ -147,7 +147,7 @@ class HaloPy(object):
             headers (Optional[dict]): Dictionary of key, value request headers
 
         Returns:
-            Response: :class:requests.Response object.
+            Response: Requests Response object.
 
         Raises:
             HaloPyError: If we are over our rate limit, or if an
@@ -220,7 +220,7 @@ class HaloPy(object):
             headers (Optional[dict]): Dictionary of key, value request headers
 
         Returns:
-            Response: :class:requests.Response object.
+            Response: Requests Response object.
         """
         return self.request(
             'profile/{t}/profiles/{e}'.format(t=self.title, e=endpoint),
@@ -255,7 +255,7 @@ class HaloPy(object):
         for more information on this endpoint.
 
         Returns:
-            List[object]: List of campaign mission details
+            list[HaloPyResult]: List of campaign mission details
         """
         url = 'campaign-missions'
         return [HaloPyResult(mission) for mission in self.meta_request(url)]
@@ -267,7 +267,7 @@ class HaloPy(object):
         for more information on this endpoint.
 
         Returns:
-            List[object]: List of commendation details
+            list[HaloPyResult]: List of commendation details
         """
         url = 'commendations'
         return [HaloPyResult(com) for com in self.meta_request(url)]
@@ -279,7 +279,7 @@ class HaloPy(object):
         for more information on this endpoint.
 
         Returns:
-            List[object]: List of CSR designation details
+            list[HaloPyResult]: List of CSR designation details
         """
         url = 'csr-designations'
         return [HaloPyResult(csr) for csr in self.meta_request(url)]
@@ -291,7 +291,7 @@ class HaloPy(object):
         for more information on this endpoint.
 
         Returns:
-            List[object]: List of enemy details
+            list[HaloPyResult]: List of enemy details
         """
         url = 'enemies'
         return [HaloPyResult(enemy) for enemy in self.meta_request(url)]
@@ -303,7 +303,7 @@ class HaloPy(object):
         for more information on this endpoint.
 
         Returns:
-            List[object]: List of flexible statistic details
+            list[HaloPyResult]: List of flexible statistic details
         """
         url = 'flexible-stats'
         return [HaloPyResult(stat) for stat in self.meta_request(url)]
@@ -315,7 +315,7 @@ class HaloPy(object):
         for more information on this endpoint.
 
         Returns:
-            List[object]: List of game base variant details
+            list[HaloPyResult]: List of game base variant details
         """
         url = 'game-base-variants'
         return [HaloPyResult(variant) for variant in self.meta_request(url)]
@@ -330,7 +330,7 @@ class HaloPy(object):
             var_id (uid): Game variant unique identifier
 
         Returns:
-            object: Game variant details
+            HaloPyResult: Game variant details
         """
         url = 'game-variants/{var_id}'.format(var_id=var_id)
         return HaloPyResult(self.meta_request(url))
@@ -344,7 +344,7 @@ class HaloPy(object):
         for more information on this endpoint.
 
         Returns:
-            List[object]: List of impulse details
+            list[HaloPyResult]: List of impulse details
         """
         url = 'impulses'
         return [HaloPyResult(impulse) for impulse in self.meta_request(url)]
@@ -359,7 +359,7 @@ class HaloPy(object):
             map_id (uid): Unique identifier for the map
 
         Returns:
-            object: Map variant details
+            HaloPyResult: Map variant details
         """
         url = 'map-variants/{map_id}'.format(map_id=map_id)
         return HaloPyResult(self.meta_request(url))
@@ -371,7 +371,7 @@ class HaloPy(object):
         for more information on this endpoint.
 
         Returns:
-            List[object]: List of map details
+            list[HaloPyResult]: List of map details
         """
         url = 'maps'
         return [HaloPyResult(map_d) for map_d in self.meta_request(url)]
@@ -383,7 +383,7 @@ class HaloPy(object):
         for more information on this endpoint.
 
         Returns:
-            List[object]: List of medal details
+            list[HaloPyResult]: List of medal details
         """
         url = 'medals'
         return [HaloPyResult(medal) for medal in self.meta_request(url)]
@@ -395,7 +395,7 @@ class HaloPy(object):
         for more information on this endpoint.
 
         Returns:
-            List[object]: List of playlist details
+            list[HaloPyResult]: List of playlist details
         """
         url = 'playlists'
         return [HaloPyResult(playlist) for playlist in self.meta_request(url)]
@@ -410,7 +410,7 @@ class HaloPy(object):
             req_pack_id (uid): Unique identifier string
 
         Returns:
-            object: "REQ" pack details
+            HaloPyResult: "REQ" pack details
         """
         url = 'requisition-packs/{req}'.format(req=req_pack_id)
         return HaloPyResult(self.meta_request(url))
@@ -425,7 +425,7 @@ class HaloPy(object):
             req_id (uid): Unique identifier string
 
         Returns:
-            object: "REQ" details
+            HaloPyResult: "REQ" details
         """
         url = 'requisitions/{req_id}'.format(req_id=req_id)
         return HaloPyResult(self.meta_request(url))
@@ -437,7 +437,7 @@ class HaloPy(object):
         for more information on this endpoint.
 
         Returns:
-            List[object]: List of skull details
+            list[HaloPyResult]: List of skull details
         """
         url = 'skulls'
         return [HaloPyResult(skull) for skull in self.meta_request(url)]
@@ -449,7 +449,7 @@ class HaloPy(object):
         for more information on this endpoint.
 
         Returns:
-            List[object]: List of spartan rank details
+            list[HaloPyResult]: List of spartan rank details
         """
         url = 'spartan-ranks'
         return [HaloPyResult(rank) for rank in self.meta_request(url)]
@@ -461,7 +461,7 @@ class HaloPy(object):
         for more information on this endpoint.
 
         Returns:
-            List[object]: List of team color details
+            list[HaloPyResult]: List of team color details
         """
         url = 'team-colors'
         return [HaloPyResult(color) for color in self.meta_request(url)]
@@ -473,7 +473,7 @@ class HaloPy(object):
         for more information on this endpoint.
 
         Returns:
-            List[HaloPyResult]: List of vehicle details
+            list[HaloPyResult]: List of vehicle details
         """
         url = 'vehicles'
         return [HaloPyResult(vehicle) for vehicle in self.meta_request(url)]
@@ -485,7 +485,7 @@ class HaloPy(object):
         for more information on this endpoint.
 
         Returns:
-            List[HaloPyResult]: List of weapon details
+            list[HaloPyResult]: List of weapon details
         """
         url = 'weapons'
         return [HaloPyResult(weapon) for weapon in self.meta_request(url)]
@@ -550,7 +550,7 @@ class HaloPy(object):
                 1, maximum is 25. 25 is assumed if unspecified.
 
         Returns:
-            object: A batched results object::
+            HaloPyResult: A batched results object::
                 {
                     "Start": int,
                     "Count": int,
@@ -572,7 +572,7 @@ class HaloPy(object):
             match_id (uid): Match unique identifier
 
         Returns:
-            object: An object representing an arena match's details
+            HaloPyResult: An object representing an arena match's details
         """
         url = 'arena/matches/{match_id}'.format(match_id=match_id)
         return HaloPyResult(self.stats_request(url))
@@ -587,7 +587,7 @@ class HaloPy(object):
             match_id (uid): Match unique identifier
 
         Returns:
-            object: An object representing a campaign match details
+            HaloPyResult: An object representing a campaign match details
         """
         url = 'campaign/matches/{match_id}'.format(match_id=match_id)
         return HaloPyResult(self.stats_request(url))
@@ -602,7 +602,7 @@ class HaloPy(object):
             match_id (uid): Match unique identifier
 
         Returns:
-            object: An object representing a custom match details
+            HaloPyResult: An object representing a custom match details
         """
         url = 'custom/matches/{match_id}'.format(match_id=match_id)
         return HaloPyResult(self.stats_request(url))
@@ -617,7 +617,7 @@ class HaloPy(object):
             match_id (uid): Match unique identifier
 
         Returns:
-            object: An object representing a warzone match details
+            HaloPyResult: An object representing a warzone match details
         """
         url = 'warzone/matches/{match_id}'.format(match_id=match_id)
         return HaloPyResult(self.stats_request(url))
@@ -631,7 +631,7 @@ class HaloPy(object):
                 ``campaign``. Defaults to ``campaign``.
 
         Returns:
-            object: Player service record object
+            HaloPyResult: Player service record object
         """
         result = self.get_players_service_record([player_gt], game_mode)
         return result[0]
@@ -646,7 +646,7 @@ class HaloPy(object):
                 or ``campaign``. Defaults to ``campaign``.
 
         Returns:
-            List[object]: List of player service record objects
+            list[HaloPyResult]: List of player service record objects
         """
         url = 'servicerecords/{game_mode}'.format(game_mode=game_mode)
         res_json = self.stats_request(url, {'players': player_gts})
