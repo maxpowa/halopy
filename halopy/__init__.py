@@ -10,7 +10,6 @@ import requests
 import requests_cache
 import time
 
-
 __version__ = '0.3'
 
 
@@ -25,6 +24,7 @@ class HaloPyResult(object):
     Args:
         obj (object): Object to base this object around
     """
+
     def __init__(self, obj):
         self._obj = obj
 
@@ -42,22 +42,33 @@ class HaloPy(object):
 
     Args:
         api_key          (str): Halo API key.
-        title (Optional[str])): Game title, presumably for forward 
+        title (Optional[str])): Game title, presumably for forward
             compatibility.
-        cache  (Optional[int]): Seconds to cache API results, 0 indicates no 
+        cache  (Optional[int]): Seconds to cache API results, 0 indicates no
             cache.
+        cache_backend (Optional[obj]): ``requests-cache`` supported backend. If
+            unspecified, HaloPy will automatically generate a halopy.cache file
+            in the current working directory.
         rate (Optional[tuple]): Maximum rate limit in form ``(req, sec)``
+        **backend_options: Options to pass to the requests-cache backend
     """
 
     def _now(self):
         return round(time.time())
 
-    def __init__(self, api_key, title='h5', cache=300, rate=(10,10)):
+    def __init__(self, api_key, title='h5', cache=300, cache_backend='sqlite', rate=(10, 10), **backend_options):
         self._api_key = api_key
         self.title = title
         self._cache = cache
         self._rate = rate
-        requests_cache.install_cache(backend='memory', expire_after=self.cache)
+        self._cache_backend = cache_backend
+
+        backend_options['fast_save'] = backend_options.get('fast_save', True)
+
+        self._backend_options = backend_options
+
+        requests_cache.install_cache(backend=self._cache_backend,
+            expire_after=self.cache, **backend_options)
 
         self._allowance = rate[0]
         self._last_check = self._now()
@@ -75,7 +86,8 @@ class HaloPy(object):
     @cache.setter
     def cache(self, value):
         self._cache = value
-        requests_cache.install_cache(backend='memory', expire_after=self.cache)
+        requests_cache.install_cache(backend=self._cache_backend, 
+            expire_after=self.cache, **self._backend_options)
 
     @property
     def rate(self):
@@ -123,9 +135,9 @@ class HaloPy(object):
 
         API key header will automatically be attached if it't not already
         specified. Endpoint will be prefixed with ``https://www.haloapi.com/``
-        before the request is executed. 
+        before the request is executed.
 
-        Retrieved values will be cached via cache method specified when 
+        Retrieved values will be cached via cache method specified when
         initializing HaloPy. If the value is from the cache, we the request
         will not count towards our rate limit bucket.
 
@@ -146,7 +158,7 @@ class HaloPy(object):
             raise HaloPyError(self._err_429)
 
         p = {}
-        for k,v in params.items():
+        for k, v in params.items():
             if k not in p and v:
                 p[k] = v
 
@@ -154,9 +166,9 @@ class HaloPy(object):
             headers['Ocp-Apim-Subscription-Key'] = self.api_key
 
         response = requests.get(
-            'https://www.haloapi.com/{e}'.format(e = endpoint),
-            params = p,
-            headers = headers
+            'https://www.haloapi.com/{e}'.format(e=endpoint),
+            params=p,
+            headers=headers
         )
         if not response.from_cache:
             # IF the request was not cached, ensure that we are rate limiting
@@ -179,7 +191,7 @@ class HaloPy(object):
     def meta_request(self, endpoint, params={}, headers={}):
         """Helper method for metadata requests
 
-        Prepends the endpoint with ``metadata/{title}/metadata/`` where 
+        Prepends the endpoint with ``metadata/{title}/metadata/`` where
         ``{title}`` is the game title.
 
         Args:
@@ -208,7 +220,7 @@ class HaloPy(object):
             headers (Optional[dict]): Dictionary of key, value request headers
 
         Returns:
-            Response: :class:requests.Response object.    
+            Response: :class:requests.Response object.
         """
         return self.request(
             'profile/{t}/profiles/{e}'.format(t=self.title, e=endpoint),
@@ -247,7 +259,7 @@ class HaloPy(object):
         """
         url = 'campaign-missions'
         return [HaloPyResult(mission) for mission in self.meta_request(url)]
-    
+
     def  get_commendations(self):
         """Get a listing of commendations supported in the title.
 
@@ -259,7 +271,7 @@ class HaloPy(object):
         """
         url = 'commendations'
         return [HaloPyResult(com) for com in self.meta_request(url)]
-        
+
     def get_csr_designations(self):
         """Get a listing of CSR designations supported in the title.
 
@@ -271,7 +283,7 @@ class HaloPy(object):
         """
         url = 'csr-designations'
         return [HaloPyResult(csr) for csr in self.meta_request(url)]
-    
+
     def get_enemies(self):
         """Get a listing of enemies supported in the title.
 
@@ -283,7 +295,7 @@ class HaloPy(object):
         """
         url = 'enemies'
         return [HaloPyResult(enemy) for enemy in self.meta_request(url)]
-        
+
     def get_flexible_stats(self):
         """Get a listing of flexible statistics supported in the title.
 
@@ -295,7 +307,7 @@ class HaloPy(object):
         """
         url = 'flexible-stats'
         return [HaloPyResult(stat) for stat in self.meta_request(url)]
-    
+
     def get_game_base_variants(self):
         """Get a listing of all game base variants supported in the title.
 
@@ -307,7 +319,7 @@ class HaloPy(object):
         """
         url = 'game-base-variants'
         return [HaloPyResult(variant) for variant in self.meta_request(url)]
-        
+
     def get_game_variant_by_id(self, var_id):
         """Get details for specified game variant id.
 
@@ -320,12 +332,12 @@ class HaloPy(object):
         Returns:
             object: Game variant details
         """
-        url = 'game-variants/{var_id}'.format(var_id = var_id)
+        url = 'game-variants/{var_id}'.format(var_id=var_id)
         return HaloPyResult(self.meta_request(url))
-    
+
     def get_impulses(self):
-        """Get list of supported impulses for the title. Impulses are 
-        essentially invisible medals, players receive them for performing 
+        """Get list of supported impulses for the title. Impulses are
+        essentially invisible medals, players receive them for performing
         virtually any action in the game.
 
         See https://developer.haloapi.com/docs/services/560af0dae2f7f710cc79e516/operations/562d68f1e2f7f72764ff1f4f
@@ -336,8 +348,8 @@ class HaloPy(object):
         """
         url = 'impulses'
         return [HaloPyResult(impulse) for impulse in self.meta_request(url)]
-    
-    def get_maps_variant_by_id(self,  map_id):
+
+    def get_maps_variant_by_id(self, map_id):
         """Get details for specified map variant id
 
         See https://developer.haloapi.com/docs/services/560af0dae2f7f710cc79e516/operations/562d68f1e2f7f72764ff1f4c
@@ -349,9 +361,9 @@ class HaloPy(object):
         Returns:
             object: Map variant details
         """
-        url = 'map-variants/{map_id}'.format(map_id = map_id)
+        url = 'map-variants/{map_id}'.format(map_id=map_id)
         return HaloPyResult(self.meta_request(url))
-    
+
     def get_maps(self):
         """Get list of supported maps in the title.
 
@@ -363,7 +375,7 @@ class HaloPy(object):
         """
         url = 'maps'
         return [HaloPyResult(map_d) for map_d in self.meta_request(url)]
-    
+
     def get_medals(self):
         """Get list of supported medals in the title.
 
@@ -402,7 +414,7 @@ class HaloPy(object):
         """
         url = 'requisition-packs/{req}'.format(req=req_pack_id)
         return HaloPyResult(self.meta_request(url))
-    
+
     def get_requisition_by_id(self, req_id):
         """Get details for a specific "REQ"
 
@@ -415,9 +427,9 @@ class HaloPy(object):
         Returns:
             object: "REQ" details
         """
-        url = 'requisitions/{req_id}'.format(req_id = req_id)
+        url = 'requisitions/{req_id}'.format(req_id=req_id)
         return HaloPyResult(self.meta_request(url))
-        
+
     def get_skulls(self):
         """Get list of skulls supported in the title.
 
@@ -429,7 +441,7 @@ class HaloPy(object):
         """
         url = 'skulls'
         return [HaloPyResult(skull) for skull in self.meta_request(url)]
-    
+
     def get_spartan_ranks(self):
         """Get list of spartan ranks supported in the title.
 
@@ -490,16 +502,15 @@ class HaloPy(object):
 
         Args:
             player_gt      (str): Player gamertag
-            size (Optional[int]): Size of emblem image, must be one of the 
+            size (Optional[int]): Size of emblem image, must be one of the
                 following values: 95, 128, 190, 256, 512. Default is 256.
 
         Returns:
             Response: Response object containing the player's emblem
         """
-        url = '{player}/emblem'.format(player = player_gt)
-        return self.profile_request(url, {'size':size})
-        
-    
+        url = '{player}/emblem'.format(player=player_gt)
+        return self.profile_request(url, {'size': size})
+
     def get_player_spartan_image(self, player_gt, size=None, crop=None):
         """Get the given player's spartan image.
 
@@ -516,8 +527,8 @@ class HaloPy(object):
         Returns:
             Response: Response object containing the player's spartan image
         """
-        url = '{player}/spartan'.format(player = player_gt)
-        return self.profile_request(url, {'size':size, 'crop':crop})
+        url = '{player}/spartan'.format(player=player_gt)
+        return self.profile_request(url, {'size': size, 'crop': crop})
 
     '''
     Statistics functions
@@ -547,10 +558,10 @@ class HaloPy(object):
                     "Results" list
                 }
         """
-        url = 'players/{player}/matches'.format(player = player_gt)
-        return HaloPyResult(self.stats_request(url, {'modes':modes, 
-            'start':start, 'count':count}))
-    
+        url = 'players/{player}/matches'.format(player=player_gt)
+        return HaloPyResult(self.stats_request(url, {'modes': modes,
+            'start': start, 'count': count}))
+
     def get_arena_match_by_id(self, match_id):
         """Get arena match details by match id.
 
@@ -563,9 +574,9 @@ class HaloPy(object):
         Returns:
             object: An object representing an arena match's details
         """
-        url = 'arena/matches/{match_id}'.format(match_id = match_id)
+        url = 'arena/matches/{match_id}'.format(match_id=match_id)
         return HaloPyResult(self.stats_request(url))
-        
+
     def get_campaign_match_by_id(self, match_id):
         """Get campaign match details by match id.
 
@@ -578,9 +589,9 @@ class HaloPy(object):
         Returns:
             object: An object representing a campaign match details
         """
-        url = 'campaign/matches/{match_id}'.format(match_id = match_id)
+        url = 'campaign/matches/{match_id}'.format(match_id=match_id)
         return HaloPyResult(self.stats_request(url))
-    
+
     def get_custom_match_by_id(self, match_id):
         """Get custom match details by match id.
 
@@ -593,9 +604,9 @@ class HaloPy(object):
         Returns:
             object: An object representing a custom match details
         """
-        url = 'custom/matches/{match_id}'.format(match_id = match_id)
+        url = 'custom/matches/{match_id}'.format(match_id=match_id)
         return HaloPyResult(self.stats_request(url))
-        
+
     def get_warzone_match_by_id(self, match_id):
         """Get warzone match details by match id.
 
@@ -608,7 +619,7 @@ class HaloPy(object):
         Returns:
             object: An object representing a warzone match details
         """
-        url = 'warzone/matches/{match_id}'.format(match_id = match_id)
+        url = 'warzone/matches/{match_id}'.format(match_id=match_id)
         return HaloPyResult(self.stats_request(url))
 
     def get_player_service_record(self, player_gt, game_mode='campaign'):
@@ -624,10 +635,9 @@ class HaloPy(object):
         """
         result = self.get_players_service_record([player_gt], game_mode)
         return result[0]
-        
 
     def get_players_service_record(self, player_gts, game_mode='campaign'):
-        """Get service records for the given list of player gamertags and the 
+        """Get service records for the given list of player gamertags and the
         given mode
 
         Args:
@@ -638,6 +648,6 @@ class HaloPy(object):
         Returns:
             List[object]: List of player service record objects
         """
-        url = 'servicerecords/{game_mode}'.format(game_mode = game_mode)
-        res_json = self.stats_request(url, {'players':player_gts})
+        url = 'servicerecords/{game_mode}'.format(game_mode=game_mode)
+        res_json = self.stats_request(url, {'players': player_gts})
         return [HaloPyResult(result) for result in res_json.get('Results', [])]

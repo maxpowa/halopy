@@ -19,14 +19,14 @@ def api(request):
 
     api_key = os.getenv('HALOPY_API_KEY', False)
     if api_key:
-        return HaloPy(api_key)
+        return HaloPy(api_key, cache_backend='memory')
     raise ValueError('No API key defined')
 
 @pytest.fixture
 def no_cache_api(request):
     api_key = os.getenv('HALOPY_API_KEY', False)
     if api_key:
-        hpy = HaloPy(api_key)
+        hpy = HaloPy(api_key, cache_backend='memory')
         hpy.cache = 0
         hpy.rate = (1,2)
         return hpy
@@ -144,7 +144,7 @@ def test_wrapped_result():
     assert hpyo.team == 'blue'
 
 def test_bad_request():
-    hpy = HaloPy(None, cache=0)
+    hpy = HaloPy(None, cache=0, cache_backend='memory')
     with pytest.raises(Exception) as ex:
         for x in range(10):
             hpy.get_campaign_missions()
