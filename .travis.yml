@@ -30,3 +30,4 @@ deploy:
   on:
     tags: true
     repo: maxpowa/halopy
+    python: '3.4'
