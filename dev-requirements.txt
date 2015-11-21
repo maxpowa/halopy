@@ -1,4 +1,0 @@
-pytest
-sphinx
-requests
-requests-cache
