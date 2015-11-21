@@ -112,6 +112,15 @@ def test_medals(api):
 def test_playlists(api):
     api.get_playlists()
 
+def test_req_by_id(api):
+    res = api.get_requisition_by_id('e4f549b2-90af-4dab-b2bc-11a46ea44103')
+    assert res.name == '10 REQ Points'
+    assert res.rarity == 'Common'
+    assert res.isWearable == False
+
+    with pytest.raises(Exception) as ex:
+        api.get_requisition_by_id('00000000-0000-0000-0000-0000000000000')
+
 def test_req_pack_by_id(api):
     res = api.get_requisition_pack_by_id('d10141cb-68a5-4c6b-af38-4e4935f973f7')
     assert res.name == 'Warzone Mastery Pack'

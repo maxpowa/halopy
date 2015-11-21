@@ -13,7 +13,7 @@ before_install:
 install:
 - pip install -r requirements.txt
 script:
-- py.test -v --cov-report=term-missing --cov=halopy tests/
+- py.test -v --tb=short --cov-report=term-missing --cov=halopy tests/
 after_success:
 - coveralls
 before_deploy:
