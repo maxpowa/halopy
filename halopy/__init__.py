@@ -19,6 +19,24 @@ class HaloPyError(Exception):
     pass
 
 
+class HaloPyResult(object):
+    """Wrapper object for results from the API
+
+    Args:
+        obj (object): Object to base this object around
+    """
+    def __init__(self, obj):
+        self._obj = obj
+
+    def __getattr__(self, name):
+        if name in self._obj:
+            return self._obj[name]
+        elif 'Result' in self._obj and name in self._obj['Result']:
+            return self._obj['Result'][name]
+        else:
+            return object.__getattribute__(self, name)
+
+
 class HaloPy(object):
     """Primary abstraction class for HaloPy
 
@@ -64,19 +82,27 @@ class HaloPy(object):
         """tuple: Maximum rate limit in form ``(req, sec)``"""
         return self._rate
 
+    @rate.setter
+    def rate(self, value):
+        if type(value) is not tuple:
+            raise ValueError('HaloPy.rate must be a tuple!')
+        self._rate = value
+
     _err_400 = 'Bad request'
     _err_401 = 'Unauthorized'
     _err_404 = 'Endpoint not found'
     _err_429 = 'Rate limit exceeded'
     _err_500 = 'Internal server error'
 
-    def _post_request(self):
+    def _pre_request(self):
         current = self._now()
         time_passed = current - self._last_check
         self._last_check = current
-        self._allowance += time_passed * (self.rate[0] / self.rate[1])
-        if self._allowance > self.rate[0]:
-            self._allowance = self.rate[0]
+        allowance = self._allowance
+        allowance += time_passed * (self.rate[0] / self.rate[1])
+        if allowance > self.rate[0]:
+            allowance = self.rate[0]
+        return allowance
 
     def can_request(self):
         """Check if we should be within our rate limits.
@@ -87,7 +113,8 @@ class HaloPy(object):
         Returns:
             bool: True if we are within the limit, False otherwise.
         """
-        if self._allowance >= 1.0:
+        allowance = self._pre_request()
+        if allowance >= 1.0:
             return True
         return False
 
@@ -114,9 +141,9 @@ class HaloPy(object):
             HaloPyError: If we are over our rate limit, or if an
                 HTTP error occurs.
         """
+        self._allowance = self._pre_request()
         if not self.can_request():
             raise HaloPyError(self._err_429)
-        self._allowance -= 1.0
 
         p = {}
         for k,v in params.items():
@@ -131,9 +158,9 @@ class HaloPy(object):
             params = p,
             headers = headers
         )
-        if not getattr(response, 'from_cache', False):
+        if not response.from_cache:
             # IF the request was not cached, ensure that we are rate limiting
-            self._post_request()
+            self._allowance -= 1.0
 
         if response.status_code == 400:
             raise HaloPyError(self._err_400)
@@ -219,7 +246,7 @@ class HaloPy(object):
             List[object]: List of campaign mission details
         """
         url = 'campaign-missions'
-        return self.meta_request(url)
+        return [HaloPyResult(mission) for mission in self.meta_request(url)]
     
     def  get_commendations(self):
         """Get a listing of commendations supported in the title.
@@ -231,7 +258,7 @@ class HaloPy(object):
             List[object]: List of commendation details
         """
         url = 'commendations'
-        return self.meta_request(url)
+        return [HaloPyResult(com) for com in self.meta_request(url)]
         
     def get_csr_designations(self):
         """Get a listing of CSR designations supported in the title.
@@ -243,7 +270,7 @@ class HaloPy(object):
             List[object]: List of CSR designation details
         """
         url = 'csr-designations'
-        return self.meta_request(url)
+        return [HaloPyResult(csr) for csr in self.meta_request(url)]
     
     def get_enemies(self):
         """Get a listing of enemies supported in the title.
@@ -255,7 +282,7 @@ class HaloPy(object):
             List[object]: List of enemy details
         """
         url = 'enemies'
-        return self.meta_request(url)
+        return [HaloPyResult(enemy) for enemy in self.meta_request(url)]
         
     def get_flexible_stats(self):
         """Get a listing of flexible statistics supported in the title.
@@ -267,7 +294,7 @@ class HaloPy(object):
             List[object]: List of flexible statistic details
         """
         url = 'flexible-stats'
-        return self.meta_request(url)
+        return [HaloPyResult(stat) for stat in self.meta_request(url)]
     
     def get_game_base_variants(self):
         """Get a listing of all game base variants supported in the title.
@@ -279,7 +306,7 @@ class HaloPy(object):
             List[object]: List of game base variant details
         """
         url = 'game-base-variants'
-        return self.meta_request(url)
+        return [HaloPyResult(variant) for variant in self.meta_request(url)]
         
     def get_game_variant_by_id(self, var_id):
         """Get details for specified game variant id.
@@ -294,7 +321,7 @@ class HaloPy(object):
             object: Game variant details
         """
         url = 'game-variants/{var_id}'.format(var_id = var_id)
-        return self.meta_request(url)    
+        return HaloPyResult(self.meta_request(url))
     
     def get_impulses(self):
         """Get list of supported impulses for the title. Impulses are 
@@ -308,7 +335,7 @@ class HaloPy(object):
             List[object]: List of impulse details
         """
         url = 'impulses'
-        return self.meta_request(url)
+        return [HaloPyResult(impulse) for impulse in self.meta_request(url)]
     
     def get_maps_variant_by_id(self,  map_id):
         """Get details for specified map variant id
@@ -323,7 +350,7 @@ class HaloPy(object):
             object: Map variant details
         """
         url = 'map-variants/{map_id}'.format(map_id = map_id)
-        return self.meta_request(url)       
+        return HaloPyResult(self.meta_request(url))
     
     def get_maps(self):
         """Get list of supported maps in the title.
@@ -335,7 +362,7 @@ class HaloPy(object):
             List[object]: List of map details
         """
         url = 'maps'
-        return self.meta_request(url)    
+        return [HaloPyResult(map_d) for map_d in self.meta_request(url)]
     
     def get_medals(self):
         """Get list of supported medals in the title.
@@ -347,7 +374,7 @@ class HaloPy(object):
             List[object]: List of medal details
         """
         url = 'medals'
-        return self.meta_request(url)        
+        return [HaloPyResult(medal) for medal in self.meta_request(url)]
 
     def get_playlists(self):
         """Get list of playlists available in the title.
@@ -359,7 +386,7 @@ class HaloPy(object):
             List[object]: List of playlist details
         """
         url = 'playlists'
-        return self.meta_request(url)    
+        return [HaloPyResult(playlist) for playlist in self.meta_request(url)]
 
     def get_requisition_pack_by_id(self, req_pack_id):
         """Get details for a specific "REQ" pack
@@ -374,7 +401,7 @@ class HaloPy(object):
             object: "REQ" pack details
         """
         url = 'requisition-packs/{req}'.format(req=req_pack_id)
-        return self.meta_request(url)      
+        return HaloPyResult(self.meta_request(url))
     
     def get_requisition_by_id(self, req_id):
         """Get details for a specific "REQ"
@@ -389,7 +416,7 @@ class HaloPy(object):
             object: "REQ" details
         """
         url = 'requisitions/{req_id}'.format(req_id = req_id)
-        return self.meta_request(url)          
+        return HaloPyResult(self.meta_request(url))
         
     def get_skulls(self):
         """Get list of skulls supported in the title.
@@ -401,7 +428,7 @@ class HaloPy(object):
             List[object]: List of skull details
         """
         url = 'skulls'
-        return self.meta_request(url)        
+        return [HaloPyResult(skull) for skull in self.meta_request(url)]
     
     def get_spartan_ranks(self):
         """Get list of spartan ranks supported in the title.
@@ -413,7 +440,7 @@ class HaloPy(object):
             List[object]: List of spartan rank details
         """
         url = 'spartan-ranks'
-        return self.meta_request(url)            
+        return [HaloPyResult(rank) for rank in self.meta_request(url)]
 
     def get_team_colors(self):
         """Get list of supported team colors in the title.
@@ -425,7 +452,7 @@ class HaloPy(object):
             List[object]: List of team color details
         """
         url = 'team-colors'
-        return self.meta_request(url)            
+        return [HaloPyResult(color) for color in self.meta_request(url)]
 
     def get_vehicles(self):
         """Get list of supported vehicles in the title.
@@ -434,10 +461,10 @@ class HaloPy(object):
         for more information on this endpoint.
 
         Returns:
-            List[object]: List of vehicle details
+            List[HaloPyResult]: List of vehicle details
         """
         url = 'vehicles'
-        return self.meta_request(url)            
+        return [HaloPyResult(vehicle) for vehicle in self.meta_request(url)]
 
     def get_weapons(self):
         """Get list of supported weapons in the title.
@@ -446,10 +473,10 @@ class HaloPy(object):
         for more information on this endpoint.
 
         Returns:
-            List[object]: List of weapon details
+            List[HaloPyResult]: List of weapon details
         """
         url = 'weapons'
-        return self.meta_request(url)
+        return [HaloPyResult(weapon) for weapon in self.meta_request(url)]
 
     '''
     Profile functions
@@ -521,9 +548,8 @@ class HaloPy(object):
                 }
         """
         url = 'players/{player}/matches'.format(player = player_gt)
-        return self.stats_request(url, {'modes':modes, 
-                                        'start':start, 
-                                        'count':count})
+        return HaloPyResult(self.stats_request(url, {'modes':modes, 
+            'start':start, 'count':count}))
     
     def get_arena_match_by_id(self, match_id):
         """Get arena match details by match id.
@@ -538,7 +564,7 @@ class HaloPy(object):
             object: An object representing an arena match's details
         """
         url = 'arena/matches/{match_id}'.format(match_id = match_id)
-        return self.stats_request(url)
+        return HaloPyResult(self.stats_request(url))
         
     def get_campaign_match_by_id(self, match_id):
         """Get campaign match details by match id.
@@ -553,7 +579,7 @@ class HaloPy(object):
             object: An object representing a campaign match details
         """
         url = 'campaign/matches/{match_id}'.format(match_id = match_id)
-        return self.stats_request(url)
+        return HaloPyResult(self.stats_request(url))
     
     def get_custom_match_by_id(self, match_id):
         """Get custom match details by match id.
@@ -568,7 +594,7 @@ class HaloPy(object):
             object: An object representing a custom match details
         """
         url = 'custom/matches/{match_id}'.format(match_id = match_id)
-        return self.stats_request(url)    
+        return HaloPyResult(self.stats_request(url))
         
     def get_warzone_match_by_id(self, match_id):
         """Get warzone match details by match id.
@@ -583,8 +609,23 @@ class HaloPy(object):
             object: An object representing a warzone match details
         """
         url = 'warzone/matches/{match_id}'.format(match_id = match_id)
-        return self.stats_request(url)       
-    
+        return HaloPyResult(self.stats_request(url))
+
+    def get_player_service_record(self, player_gt, game_mode='campaign'):
+        """Get service record for the given player
+
+        Args:
+            player_gt (str): Player gamertag to get the service record for
+            game_mode (str): Must be ``arena``, ``warzone``, ``custom``, or
+                ``campaign``. Defaults to ``campaign``.
+
+        Returns:
+            object: Player service record object
+        """
+        result = self.get_players_service_record([player_gt], game_mode)
+        return result[0]
+        
+
     def get_players_service_record(self, player_gts, game_mode='campaign'):
         """Get service records for the given list of player gamertags and the 
         given mode
@@ -598,5 +639,5 @@ class HaloPy(object):
             List[object]: List of player service record objects
         """
         url = 'servicerecords/{game_mode}'.format(game_mode = game_mode)
-        res_json = self.stats_request(url, {'players':player_ids})
-        return res_json.get('Results', [])
+        res_json = self.stats_request(url, {'players':player_gts})
+        return [HaloPyResult(result) for result in res_json.get('Results', [])]
