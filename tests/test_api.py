@@ -144,6 +144,29 @@ def test_vehicles(api):
 def test_weapons(api):
     api.get_weapons()
 
+def test_campaign_match_by_id(api):
+    res = api.get_campaign_match_by_id('aa86d0c8-2602-43b3-b123-ad86ec9e1761')
+    assert res.PlayerStats != None
+    assert res.Difficulty == 2
+
+def test_arena_match_by_id(api):
+    res = api.get_arena_match_by_id('5bf92c4e-9b7f-4cdf-bfc5-f4e3a99616f9')
+    assert res.IsTeamGame == False
+    assert res.IsMatchOver == True
+    assert res.MapId == 'c74c9d0f-f206-11e4-8330-24be05e24f7e'
+
+def test_custom_match_by_id(api):
+    res = api.get_custom_match_by_id('517ac5e7-be91-4ecd-a93c-0ba1a9e4b4e4')
+    assert res.IsTeamGame == True
+    assert res.IsMatchOver == True
+    assert res.MapId == 'c7edbf0f-f206-11e4-aa52-24be05e24f7e'
+
+def test_warzone_match_by_id(api):
+    res = api.get_warzone_match_by_id('396cccb2-6ea4-4654-926b-cfcd75dfca76')
+    assert res.IsMatchOver == True
+    assert res.IsTeamGame == True
+    assert res.MapId == 'cae999f0-f206-11e4-9835-24be05e24f7e'
+
 def test_can_request(api):
     assert api.can_request() == True
     api._allowance = 0
