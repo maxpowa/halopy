@@ -86,7 +86,7 @@ class HaloPy(object):
     @cache.setter
     def cache(self, value):
         self._cache = value
-        requests_cache.install_cache(backend=self._cache_backend, 
+        requests_cache.install_cache(backend=self._cache_backend,
             expire_after=self.cache, **self._backend_options)
 
     @property
