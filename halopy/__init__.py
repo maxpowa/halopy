@@ -349,7 +349,7 @@ class HaloPy(object):
         url = 'impulses'
         return [HaloPyResult(impulse) for impulse in self.meta_request(url)]
 
-    def get_maps_variant_by_id(self, map_id):
+    def get_map_variant_by_id(self, map_id):
         """Get details for specified map variant id
 
         See https://developer.haloapi.com/docs/services/560af0dae2f7f710cc79e516/operations/562d68f1e2f7f72764ff1f4c

@@ -84,17 +84,41 @@ def test_flexible_stats(api):
 def test_game_base_variants(api):
     api.get_game_base_variants()
 
+def test_game_variant_by_id(api):
+    res = api.get_game_variant_by_id('963ca478-369a-4a37-97e3-432fa13035e1')
+    assert res.name == 'Slayer'
+    assert res.gameBaseVariantId == '257a305e-4dd3-41f1-9824-dfe7e8bd59e1'
+
+    with pytest.raises(Exception) as ex:
+        api.get_game_variant_by_id('00000000-0000-0000-0000-0000000000000')
+
 def test_impulses(api):
     api.get_impulses()
 
 def test_maps(api):
     api.get_maps()
 
+def test_map_by_id(api):
+    res = api.get_map_variant_by_id('a44373ee-9f63-4733-befd-5cd8fbb1b44a')
+    assert res.name == 'Truth'
+    assert res.mapId == 'ce1dc2de-f206-11e4-a646-24be05e24f7e'
+
+    with pytest.raises(Exception) as ex:
+        api.get_map_variant_by_id('00000000-0000-0000-0000-0000000000000')
+
 def test_medals(api):
     api.get_medals()
 
 def test_playlists(api):
     api.get_playlists()
+
+def test_req_pack_by_id(api):
+    res = api.get_requisition_pack_by_id('d10141cb-68a5-4c6b-af38-4e4935f973f7')
+    assert res.name == 'Warzone Mastery Pack'
+    assert res.isPurchasableFromMarketplace = False
+
+    with pytest.raises(Exception) as ex:
+        api.get_requisition_pack_by_id('00000000-0000-0000-0000-0000000000000')
 
 def test_skulls(api):
     api.get_skulls()
