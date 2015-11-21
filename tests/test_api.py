@@ -115,7 +115,7 @@ def test_playlists(api):
 def test_req_pack_by_id(api):
     res = api.get_requisition_pack_by_id('d10141cb-68a5-4c6b-af38-4e4935f973f7')
     assert res.name == 'Warzone Mastery Pack'
-    assert res.isPurchasableFromMarketplace = False
+    assert res.isPurchasableFromMarketplace == False
 
     with pytest.raises(Exception) as ex:
         api.get_requisition_pack_by_id('00000000-0000-0000-0000-0000000000000')
